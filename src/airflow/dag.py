@@ -6,8 +6,7 @@ from airflow_client.client.model.clear_task_instances import ClearTaskInstances
 from airflow_client.client.model.dag import DAG
 from airflow_client.client.model.update_task_instances_state import UpdateTaskInstancesState
 
-from src.airflow.airflow_client import api_client
-from src.envs import AIRFLOW_HOST
+from src.airflow.airflow_client import api_client, AIRFLOW_HOST
 
 dag_api = DAGApi(api_client)
 

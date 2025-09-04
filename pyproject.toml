@@ -2,15 +2,15 @@
 name = "mcp-server-apache-airflow"
 version = "0.2.7"
 description = "Model Context Protocol (MCP) server for Apache Airflow"
-authors = [
-    { name = "Gyeongmo Yang", email = "me@gmyang.dev" }
-]
+authors = [{ name = "Gyeongmo Yang", email = "me@gmyang.dev" }]
 dependencies = [
     "httpx>=0.24.1",
     "click>=8.1.7",
     "mcp>=0.1.0",
     "apache-airflow-client>=2.7.0,<3",
     "fastmcp>=2.11.3",
+    "boto3",
+    "requests>=2.25.0",
 ]
 requires-python = ">=3.10"
 readme = "README.md"
@@ -28,10 +28,7 @@ classifiers = [
 keywords = ["mcp", "airflow", "apache-airflow", "model-context-protocol"]
 
 [project.optional-dependencies]
-dev = [
-    "build>=1.2.2.post1",
-    "twine>=6.1.0",
-]
+dev = ["build>=1.2.2.post1", "twine>=6.1.0"]
 
 [project.urls]
 Homepage = "https://github.com/yangkyeongmo/mcp-server-apache-airflow"
@@ -49,11 +46,7 @@ mcp-server-apache-airflow = "src.main:main"
 packages = ["src"]
 
 [tool.hatch.build]
-include = [
-    "src/**/*.py",
-    "README.md",
-    "LICENSE",
-]
+include = ["src/**/*.py", "README.md", "LICENSE"]
 
 [tool.ruff]
 line-length = 120

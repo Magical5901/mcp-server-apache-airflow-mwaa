@@ -8,8 +8,7 @@ from airflow_client.client.model.dag_run import DAGRun
 from airflow_client.client.model.set_dag_run_note import SetDagRunNote
 from airflow_client.client.model.update_dag_run_state import UpdateDagRunState
 
-from src.airflow.airflow_client import api_client
-from src.envs import AIRFLOW_HOST
+from src.airflow.airflow_client import api_client, AIRFLOW_HOST
 
 dag_run_api = DAGRunApi(api_client)
 
