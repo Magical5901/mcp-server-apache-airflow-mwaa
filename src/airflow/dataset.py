@@ -3,9 +3,13 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import mcp.types as types
 from airflow_client.client.api.dataset_api import DatasetApi
 
-from src.airflow.airflow_client import api_client
+from src.airflow.airflow_client import get_api_client_and_host
 
-dataset_api = DatasetApi(api_client)
+
+def _dataset_api(env_name: str, aws_profile: str, region: str) -> DatasetApi:
+    """Return a DatasetApi bound to the requested MWAA target."""
+    api_client, _ = get_api_client_and_host(env_name, aws_profile, region)
+    return DatasetApi(api_client)
 
 
 def get_all_functions() -> list[tuple[Callable, str, str, bool]]:
@@ -40,12 +44,16 @@ def get_all_functions() -> list[tuple[Callable, str, str, bool]]:
 
 
 async def get_datasets(
+    env_name: str,
+    aws_profile: str,
+    region: str,
     limit: Optional[int] = None,
     offset: Optional[int] = None,
     order_by: Optional[str] = None,
     uri_pattern: Optional[str] = None,
     dag_ids: Optional[str] = None,
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    dataset_api = _dataset_api(env_name, aws_profile, region)
     # Build parameters dictionary
     kwargs: Dict[str, Any] = {}
     if limit is not None:
@@ -64,13 +72,20 @@ async def get_datasets(
 
 
 async def get_dataset(
+    env_name: str,
+    aws_profile: str,
+    region: str,
     uri: str,
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    dataset_api = _dataset_api(env_name, aws_profile, region)
     response = dataset_api.get_dataset(uri=uri)
     return [types.TextContent(type="text", text=str(response.to_dict()))]
 
 
 async def get_dataset_events(
+    env_name: str,
+    aws_profile: str,
+    region: str,
     limit: Optional[int] = None,
     offset: Optional[int] = None,
     order_by: Optional[str] = None,
@@ -80,6 +95,7 @@ async def get_dataset_events(
     source_run_id: Optional[str] = None,
     source_map_index: Optional[int] = None,
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    dataset_api = _dataset_api(env_name, aws_profile, region)
     # Build parameters dictionary
     kwargs: Dict[str, Any] = {}
     if limit is not None:
@@ -104,9 +120,13 @@ async def get_dataset_events(
 
 
 async def create_dataset_event(
+    env_name: str,
+    aws_profile: str,
+    region: str,
     dataset_uri: str,
     extra: Optional[Dict[str, Any]] = None,
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    dataset_api = _dataset_api(env_name, aws_profile, region)
     event_request = {
         "dataset_uri": dataset_uri,
     }
@@ -118,32 +138,48 @@ async def create_dataset_event(
 
 
 async def get_dag_dataset_queued_event(
+    env_name: str,
+    aws_profile: str,
+    region: str,
     dag_id: str,
     uri: str,
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    dataset_api = _dataset_api(env_name, aws_profile, region)
     response = dataset_api.get_dag_dataset_queued_event(dag_id=dag_id, uri=uri)
     return [types.TextContent(type="text", text=str(response.to_dict()))]
 
 
 async def get_dag_dataset_queued_events(
+    env_name: str,
+    aws_profile: str,
+    region: str,
     dag_id: str,
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    dataset_api = _dataset_api(env_name, aws_profile, region)
     response = dataset_api.get_dag_dataset_queued_events(dag_id=dag_id)
     return [types.TextContent(type="text", text=str(response.to_dict()))]
 
 
 async def delete_dag_dataset_queued_event(
+    env_name: str,
+    aws_profile: str,
+    region: str,
     dag_id: str,
     uri: str,
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    dataset_api = _dataset_api(env_name, aws_profile, region)
     response = dataset_api.delete_dag_dataset_queued_event(dag_id=dag_id, uri=uri)
     return [types.TextContent(type="text", text=str(response.to_dict()))]
 
 
 async def delete_dag_dataset_queued_events(
+    env_name: str,
+    aws_profile: str,
+    region: str,
     dag_id: str,
     before: Optional[str] = None,
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    dataset_api = _dataset_api(env_name, aws_profile, region)
     kwargs: Dict[str, Any] = {}
     if before is not None:
         kwargs["before"] = before
@@ -153,16 +189,24 @@ async def delete_dag_dataset_queued_events(
 
 
 async def get_dataset_queued_events(
+    env_name: str,
+    aws_profile: str,
+    region: str,
     uri: str,
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    dataset_api = _dataset_api(env_name, aws_profile, region)
     response = dataset_api.get_dataset_queued_events(uri=uri)
     return [types.TextContent(type="text", text=str(response.to_dict()))]
 
 
 async def delete_dataset_queued_events(
+    env_name: str,
+    aws_profile: str,
+    region: str,
     uri: str,
     before: Optional[str] = None,
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    dataset_api = _dataset_api(env_name, aws_profile, region)
     kwargs: Dict[str, Any] = {}
     if before is not None:
         kwargs["before"] = before

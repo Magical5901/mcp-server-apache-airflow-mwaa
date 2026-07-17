@@ -3,9 +3,13 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import mcp.types as types
 from airflow_client.client.api.x_com_api import XComApi
 
-from src.airflow.airflow_client import api_client
+from src.airflow.airflow_client import get_api_client_and_host
 
-xcom_api = XComApi(api_client)
+
+def _xcom_api(env_name: str, aws_profile: str, region: str) -> XComApi:
+    """Return a XComApi bound to the requested MWAA target."""
+    api_client, _ = get_api_client_and_host(env_name, aws_profile, region)
+    return XComApi(api_client)
 
 
 def get_all_functions() -> list[tuple[Callable, str, str, bool]]:
@@ -17,6 +21,9 @@ def get_all_functions() -> list[tuple[Callable, str, str, bool]]:
 
 
 async def get_xcom_entries(
+    env_name: str,
+    aws_profile: str,
+    region: str,
     dag_id: str,
     dag_run_id: str,
     task_id: str,
@@ -25,6 +32,7 @@ async def get_xcom_entries(
     limit: Optional[int] = None,
     offset: Optional[int] = None,
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    xcom_api = _xcom_api(env_name, aws_profile, region)
     # Build parameters dictionary
     kwargs: Dict[str, Any] = {}
     if map_index is not None:
@@ -41,6 +49,9 @@ async def get_xcom_entries(
 
 
 async def get_xcom_entry(
+    env_name: str,
+    aws_profile: str,
+    region: str,
     dag_id: str,
     dag_run_id: str,
     task_id: str,
@@ -49,6 +60,7 @@ async def get_xcom_entry(
     deserialize: Optional[bool] = None,
     stringify: Optional[bool] = None,
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    xcom_api = _xcom_api(env_name, aws_profile, region)
     # Build parameters dictionary
     kwargs: Dict[str, Any] = {}
     if map_index is not None:

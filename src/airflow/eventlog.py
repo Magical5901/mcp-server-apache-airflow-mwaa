@@ -4,9 +4,13 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import mcp.types as types
 from airflow_client.client.api.event_log_api import EventLogApi
 
-from src.airflow.airflow_client import api_client
+from src.airflow.airflow_client import get_api_client_and_host
 
-event_log_api = EventLogApi(api_client)
+
+def _event_log_api(env_name: str, aws_profile: str, region: str) -> EventLogApi:
+    """Return an EventLogApi bound to the requested MWAA target."""
+    api_client, _ = get_api_client_and_host(env_name, aws_profile, region)
+    return EventLogApi(api_client)
 
 
 def get_all_functions() -> list[tuple[Callable, str, str, bool]]:
@@ -18,6 +22,9 @@ def get_all_functions() -> list[tuple[Callable, str, str, bool]]:
 
 
 async def get_event_logs(
+    env_name: str,
+    aws_profile: str,
+    region: str,
     limit: Optional[int] = None,
     offset: Optional[int] = None,
     order_by: Optional[str] = None,
@@ -33,6 +40,7 @@ async def get_event_logs(
     included_events: Optional[str] = None,
     excluded_events: Optional[str] = None,
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    event_log_api = _event_log_api(env_name, aws_profile, region)
     # Build parameters dictionary
     kwargs: Dict[str, Any] = {}
     if limit is not None:
@@ -69,7 +77,11 @@ async def get_event_logs(
 
 
 async def get_event_log(
+    env_name: str,
+    aws_profile: str,
+    region: str,
     event_log_id: int,
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    event_log_api = _event_log_api(env_name, aws_profile, region)
     response = event_log_api.get_event_log(event_log_id=event_log_id)
     return [types.TextContent(type="text", text=str(response.to_dict()))]

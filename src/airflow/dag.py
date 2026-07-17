@@ -6,9 +6,13 @@ from airflow_client.client.model.clear_task_instances import ClearTaskInstances
 from airflow_client.client.model.dag import DAG
 from airflow_client.client.model.update_task_instances_state import UpdateTaskInstancesState
 
-from src.airflow.airflow_client import api_client, AIRFLOW_HOST
+from src.airflow.airflow_client import get_api_client_and_host
 
-dag_api = DAGApi(api_client)
+
+def _dag_api(env_name: str, aws_profile: str, region: str) -> tuple[DAGApi, str]:
+    """Return a DAGApi bound to the requested MWAA target and its host URL."""
+    api_client, host = get_api_client_and_host(env_name, aws_profile, region)
+    return DAGApi(api_client), host
 
 
 def get_all_functions() -> list[tuple[Callable, str, str, bool]]:
@@ -32,11 +36,14 @@ def get_all_functions() -> list[tuple[Callable, str, str, bool]]:
     ]
 
 
-def get_dag_url(dag_id: str) -> str:
-    return f"{AIRFLOW_HOST}/dags/{dag_id}/grid"
+def get_dag_url(host: str, dag_id: str) -> str:
+    return f"{host}/dags/{dag_id}/grid"
 
 
 async def get_dags(
+    env_name: str,
+    aws_profile: str,
+    region: str,
     limit: Optional[int] = None,
     offset: Optional[int] = None,
     order_by: Optional[str] = None,
@@ -45,6 +52,8 @@ async def get_dags(
     paused: Optional[bool] = None,
     dag_id_pattern: Optional[str] = None,
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    dag_api, host = _dag_api(env_name, aws_profile, region)
+
     # Build parameters dictionary
     kwargs: Dict[str, Any] = {}
     if limit is not None:
@@ -70,26 +79,31 @@ async def get_dags(
 
     # Add UI links to each DAG
     for dag in response_dict.get("dags", []):
-        dag["ui_url"] = get_dag_url(dag["dag_id"])
+        dag["ui_url"] = get_dag_url(host, dag["dag_id"])
 
     return [types.TextContent(type="text", text=str(response_dict))]
 
 
-async def get_dag(dag_id: str) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+async def get_dag(
+    env_name: str, aws_profile: str, region: str, dag_id: str
+) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    dag_api, host = _dag_api(env_name, aws_profile, region)
     response = dag_api.get_dag(dag_id=dag_id)
 
     # Convert response to dictionary for easier manipulation
     response_dict = response.to_dict()
 
     # Add UI link to DAG
-    response_dict["ui_url"] = get_dag_url(dag_id)
+    response_dict["ui_url"] = get_dag_url(host, dag_id)
 
     return [types.TextContent(type="text", text=str(response_dict))]
 
 
 async def get_dag_details(
-    dag_id: str, fields: Optional[List[str]] = None
+    env_name: str, aws_profile: str, region: str, dag_id: str, fields: Optional[List[str]] = None
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    dag_api, _ = _dag_api(env_name, aws_profile, region)
+
     # Build parameters dictionary
     kwargs: Dict[str, Any] = {}
     if fields is not None:
@@ -99,31 +113,49 @@ async def get_dag_details(
     return [types.TextContent(type="text", text=str(response.to_dict()))]
 
 
-async def get_dag_source(file_token: str) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+async def get_dag_source(
+    env_name: str, aws_profile: str, region: str, file_token: str
+) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    dag_api, _ = _dag_api(env_name, aws_profile, region)
     response = dag_api.get_dag_source(file_token=file_token)
     return [types.TextContent(type="text", text=str(response.to_dict()))]
 
 
-async def pause_dag(dag_id: str) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+async def pause_dag(
+    env_name: str, aws_profile: str, region: str, dag_id: str
+) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    dag_api, _ = _dag_api(env_name, aws_profile, region)
     dag = DAG(is_paused=True)
     response = dag_api.patch_dag(dag_id=dag_id, dag=dag, update_mask=["is_paused"])
     return [types.TextContent(type="text", text=str(response.to_dict()))]
 
 
-async def unpause_dag(dag_id: str) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+async def unpause_dag(
+    env_name: str, aws_profile: str, region: str, dag_id: str
+) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    dag_api, _ = _dag_api(env_name, aws_profile, region)
     dag = DAG(is_paused=False)
     response = dag_api.patch_dag(dag_id=dag_id, dag=dag, update_mask=["is_paused"])
     return [types.TextContent(type="text", text=str(response.to_dict()))]
 
 
-async def get_dag_tasks(dag_id: str) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+async def get_dag_tasks(
+    env_name: str, aws_profile: str, region: str, dag_id: str
+) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    dag_api, _ = _dag_api(env_name, aws_profile, region)
     response = dag_api.get_tasks(dag_id=dag_id)
     return [types.TextContent(type="text", text=str(response.to_dict()))]
 
 
 async def patch_dag(
-    dag_id: str, is_paused: Optional[bool] = None, tags: Optional[List[str]] = None
+    env_name: str,
+    aws_profile: str,
+    region: str,
+    dag_id: str,
+    is_paused: Optional[bool] = None,
+    tags: Optional[List[str]] = None,
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    dag_api, _ = _dag_api(env_name, aws_profile, region)
     update_request = {}
     update_mask = []
 
@@ -141,10 +173,14 @@ async def patch_dag(
 
 
 async def patch_dags(
+    env_name: str,
+    aws_profile: str,
+    region: str,
     dag_id_pattern: Optional[str] = None,
     is_paused: Optional[bool] = None,
     tags: Optional[List[str]] = None,
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    dag_api, _ = _dag_api(env_name, aws_profile, region)
     update_request = {}
     update_mask = []
 
@@ -165,21 +201,26 @@ async def patch_dags(
     return [types.TextContent(type="text", text=str(response.to_dict()))]
 
 
-async def delete_dag(dag_id: str) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+async def delete_dag(
+    env_name: str, aws_profile: str, region: str, dag_id: str
+) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    dag_api, _ = _dag_api(env_name, aws_profile, region)
     response = dag_api.delete_dag(dag_id=dag_id)
     return [types.TextContent(type="text", text=str(response.to_dict()))]
 
 
 async def get_task(
-    dag_id: str, task_id: str
+    env_name: str, aws_profile: str, region: str, dag_id: str, task_id: str
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    dag_api, _ = _dag_api(env_name, aws_profile, region)
     response = dag_api.get_task(dag_id=dag_id, task_id=task_id)
     return [types.TextContent(type="text", text=str(response.to_dict()))]
 
 
 async def get_tasks(
-    dag_id: str, order_by: Optional[str] = None
+    env_name: str, aws_profile: str, region: str, dag_id: str, order_by: Optional[str] = None
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    dag_api, _ = _dag_api(env_name, aws_profile, region)
     kwargs = {}
     if order_by is not None:
         kwargs["order_by"] = order_by
@@ -189,6 +230,9 @@ async def get_tasks(
 
 
 async def clear_task_instances(
+    env_name: str,
+    aws_profile: str,
+    region: str,
     dag_id: str,
     task_ids: Optional[List[str]] = None,
     start_date: Optional[str] = None,
@@ -202,6 +246,7 @@ async def clear_task_instances(
     dry_run: Optional[bool] = None,
     reset_dag_runs: Optional[bool] = None,
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    dag_api, _ = _dag_api(env_name, aws_profile, region)
     clear_request = {}
     if task_ids is not None:
         clear_request["task_ids"] = task_ids
@@ -233,6 +278,9 @@ async def clear_task_instances(
 
 
 async def set_task_instances_state(
+    env_name: str,
+    aws_profile: str,
+    region: str,
     dag_id: str,
     state: str,
     task_ids: Optional[List[str]] = None,
@@ -243,6 +291,7 @@ async def set_task_instances_state(
     include_past: Optional[bool] = None,
     dry_run: Optional[bool] = None,
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    dag_api, _ = _dag_api(env_name, aws_profile, region)
     state_request = {"state": state}
     if task_ids is not None:
         state_request["task_ids"] = task_ids
@@ -269,7 +318,11 @@ async def set_task_instances_state(
 
 
 async def reparse_dag_file(
+    env_name: str,
+    aws_profile: str,
+    region: str,
     file_token: str,
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    dag_api, _ = _dag_api(env_name, aws_profile, region)
     response = dag_api.reparse_dag_file(file_token=file_token)
     return [types.TextContent(type="text", text=str(response.to_dict()))]

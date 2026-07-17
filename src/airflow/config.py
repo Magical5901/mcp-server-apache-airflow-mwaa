@@ -3,9 +3,13 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import mcp.types as types
 from airflow_client.client.api.config_api import ConfigApi
 
-from src.airflow.airflow_client import api_client
+from src.airflow.airflow_client import get_api_client_and_host
 
-config_api = ConfigApi(api_client)
+
+def _config_api(env_name: str, aws_profile: str, region: str) -> ConfigApi:
+    """Return a ConfigApi bound to the requested MWAA target."""
+    api_client, _ = get_api_client_and_host(env_name, aws_profile, region)
+    return ConfigApi(api_client)
 
 
 def get_all_functions() -> list[tuple[Callable, str, str, bool]]:
@@ -17,8 +21,12 @@ def get_all_functions() -> list[tuple[Callable, str, str, bool]]:
 
 
 async def get_config(
+    env_name: str,
+    aws_profile: str,
+    region: str,
     section: Optional[str] = None,
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    config_api = _config_api(env_name, aws_profile, region)
     # Build parameters dictionary
     kwargs: Dict[str, Any] = {}
     if section is not None:
@@ -29,7 +37,8 @@ async def get_config(
 
 
 async def get_value(
-    section: str, option: str
+    env_name: str, aws_profile: str, region: str, section: str, option: str
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    config_api = _config_api(env_name, aws_profile, region)
     response = config_api.get_value(section=section, option=option)
     return [types.TextContent(type="text", text=str(response.to_dict()))]

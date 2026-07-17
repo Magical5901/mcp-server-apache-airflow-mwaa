@@ -3,9 +3,13 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import mcp.types as types
 from airflow_client.client.api.plugin_api import PluginApi
 
-from src.airflow.airflow_client import api_client
+from src.airflow.airflow_client import get_api_client_and_host
 
-plugin_api = PluginApi(api_client)
+
+def _plugin_api(env_name: str, aws_profile: str, region: str) -> PluginApi:
+    """Return a PluginApi bound to the requested MWAA target."""
+    api_client, _ = get_api_client_and_host(env_name, aws_profile, region)
+    return PluginApi(api_client)
 
 
 def get_all_functions() -> list[tuple[Callable, str, str, bool]]:
@@ -16,6 +20,9 @@ def get_all_functions() -> list[tuple[Callable, str, str, bool]]:
 
 
 async def get_plugins(
+    env_name: str,
+    aws_profile: str,
+    region: str,
     limit: Optional[int] = None,
     offset: Optional[int] = None,
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
@@ -29,6 +36,7 @@ async def get_plugins(
     Returns:
         A list of loaded plugins.
     """
+    plugin_api = _plugin_api(env_name, aws_profile, region)
     # Build parameters dictionary
     kwargs: Dict[str, Any] = {}
     if limit is not None:

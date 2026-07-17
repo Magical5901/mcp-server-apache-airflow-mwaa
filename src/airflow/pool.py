@@ -4,9 +4,13 @@ import mcp.types as types
 from airflow_client.client.api.pool_api import PoolApi
 from airflow_client.client.model.pool import Pool
 
-from src.airflow.airflow_client import api_client
+from src.airflow.airflow_client import get_api_client_and_host
 
-pool_api = PoolApi(api_client)
+
+def _pool_api(env_name: str, aws_profile: str, region: str) -> PoolApi:
+    """Return a PoolApi bound to the requested MWAA target."""
+    api_client, _ = get_api_client_and_host(env_name, aws_profile, region)
+    return PoolApi(api_client)
 
 
 def get_all_functions() -> list[tuple[Callable, str, str, bool]]:
@@ -21,6 +25,9 @@ def get_all_functions() -> list[tuple[Callable, str, str, bool]]:
 
 
 async def get_pools(
+    env_name: str,
+    aws_profile: str,
+    region: str,
     limit: Optional[int] = None,
     offset: Optional[int] = None,
     order_by: Optional[str] = None,
@@ -36,6 +43,7 @@ async def get_pools(
     Returns:
         A list of pools.
     """
+    pool_api = _pool_api(env_name, aws_profile, region)
     # Build parameters dictionary
     kwargs: Dict[str, Any] = {}
     if limit is not None:
@@ -50,6 +58,9 @@ async def get_pools(
 
 
 async def get_pool(
+    env_name: str,
+    aws_profile: str,
+    region: str,
     pool_name: str,
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
     """
@@ -61,11 +72,15 @@ async def get_pool(
     Returns:
         The pool details.
     """
+    pool_api = _pool_api(env_name, aws_profile, region)
     response = pool_api.get_pool(pool_name=pool_name)
     return [types.TextContent(type="text", text=str(response.to_dict()))]
 
 
 async def delete_pool(
+    env_name: str,
+    aws_profile: str,
+    region: str,
     pool_name: str,
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
     """
@@ -77,11 +92,15 @@ async def delete_pool(
     Returns:
         A confirmation message.
     """
+    pool_api = _pool_api(env_name, aws_profile, region)
     pool_api.delete_pool(pool_name=pool_name)
     return [types.TextContent(type="text", text=f"Pool '{pool_name}' deleted successfully.")]
 
 
 async def post_pool(
+    env_name: str,
+    aws_profile: str,
+    region: str,
     name: str,
     slots: int,
     description: Optional[str] = None,
@@ -99,6 +118,7 @@ async def post_pool(
     Returns:
         The created pool details.
     """
+    pool_api = _pool_api(env_name, aws_profile, region)
     pool = Pool(
         name=name,
         slots=slots,
@@ -115,6 +135,9 @@ async def post_pool(
 
 
 async def patch_pool(
+    env_name: str,
+    aws_profile: str,
+    region: str,
     pool_name: str,
     slots: Optional[int] = None,
     description: Optional[str] = None,
@@ -132,6 +155,7 @@ async def patch_pool(
     Returns:
         The updated pool details.
     """
+    pool_api = _pool_api(env_name, aws_profile, region)
     pool = Pool()
 
     if slots is not None:

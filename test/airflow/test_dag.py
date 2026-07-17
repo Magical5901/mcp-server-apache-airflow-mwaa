@@ -23,14 +23,22 @@ from src.airflow.dag import (
     unpause_dag,
 )
 
+# Target coordinates passed to every tool call. A single server serves many MWAA
+# environments, so the (env_name, aws_profile, region) triple is supplied per call.
+ENV = "test-env"
+PROFILE = "test-profile"
+REGION = "us-east-1"
+HOST = "http://localhost:8080"
+
 
 class TestDagModule:
     """Table-driven test cases for the dag module."""
 
     @pytest.fixture
     def mock_dag_api(self):
-        """Create a mock DAG API instance."""
-        with patch("src.airflow.dag.dag_api") as mock_api:
+        """Patch the per-call DAG API factory to return a mock API and a fixed host."""
+        mock_api = MagicMock()
+        with patch("src.airflow.dag._dag_api", return_value=(mock_api, HOST)):
             yield mock_api
 
     def test_get_dag_url(self):
@@ -43,9 +51,8 @@ class TestDagModule:
         ]
 
         for dag_id, expected_url in test_cases:
-            with patch("src.airflow.dag.AIRFLOW_HOST", "http://localhost:8080"):
-                result = get_dag_url(dag_id)
-                assert result == expected_url
+            result = get_dag_url(HOST, dag_id)
+            assert result == expected_url
 
     @pytest.mark.parametrize(
         "test_case",
@@ -87,8 +94,7 @@ class TestDagModule:
         mock_dag_api.get_dags.return_value = mock_response
 
         # Execute function
-        with patch("src.airflow.dag.AIRFLOW_HOST", "http://localhost:8080"):
-            result = await get_dags(**test_case["input"])
+        result = await get_dags(ENV, PROFILE, REGION, **test_case["input"])
 
         # Verify API call
         mock_dag_api.get_dags.assert_called_once_with(**test_case["expected_call_kwargs"])
@@ -127,8 +133,7 @@ class TestDagModule:
         mock_dag_api.get_dag.return_value = mock_response
 
         # Execute function
-        with patch("src.airflow.dag.AIRFLOW_HOST", "http://localhost:8080"):
-            result = await get_dag(**test_case["input"])
+        result = await get_dag(ENV, PROFILE, REGION, **test_case["input"])
 
         # Verify API call
         mock_dag_api.get_dag.assert_called_once_with(**test_case["expected_call_kwargs"])
@@ -163,7 +168,7 @@ class TestDagModule:
         mock_dag_api.get_dag_details.return_value = mock_response
 
         # Execute function
-        result = await get_dag_details(**test_case["input"])
+        result = await get_dag_details(ENV, PROFILE, REGION, **test_case["input"])
 
         # Verify API call and result
         mock_dag_api.get_dag_details.assert_called_once_with(**test_case["expected_call_kwargs"])
@@ -199,7 +204,7 @@ class TestDagModule:
         mock_dag_api.patch_dag.return_value = mock_response
 
         # Execute function
-        result = await test_case["function"](**test_case["input"])
+        result = await test_case["function"](ENV, PROFILE, REGION, **test_case["input"])
 
         # Verify API call and result
         mock_dag_api.patch_dag.assert_called_once_with(**test_case["expected_call_kwargs"])
@@ -247,7 +252,7 @@ class TestDagModule:
         mock_dag_api.get_tasks.return_value = mock_response
 
         # Execute function
-        result = await get_tasks(**test_case["input"])
+        result = await get_tasks(ENV, PROFILE, REGION, **test_case["input"])
 
         # Verify API call and result
         mock_dag_api.get_tasks.assert_called_once_with(**test_case["expected_call_kwargs"])
@@ -289,7 +294,7 @@ class TestDagModule:
             mock_dag_instance = MagicMock()
             mock_dag_class.return_value = mock_dag_instance
 
-            result = await patch_dag(**test_case["input"])
+            result = await patch_dag(ENV, PROFILE, REGION, **test_case["input"])
 
             # Verify DAG instance creation and API call
             expected_update_request = {k: v for k, v in test_case["input"].items() if k != "dag_id"}
@@ -348,7 +353,7 @@ class TestDagModule:
             mock_clear_instance = MagicMock()
             mock_clear_class.return_value = mock_clear_instance
 
-            result = await clear_task_instances(**test_case["input"])
+            result = await clear_task_instances(ENV, PROFILE, REGION, **test_case["input"])
 
             # Verify ClearTaskInstances creation and API call
             mock_clear_class.assert_called_once_with(**test_case["expected_clear_request"])
@@ -403,7 +408,7 @@ class TestDagModule:
             mock_state_instance = MagicMock()
             mock_state_class.return_value = mock_state_instance
 
-            result = await set_task_instances_state(**test_case["input"])
+            result = await set_task_instances_state(ENV, PROFILE, REGION, **test_case["input"])
 
             # Verify UpdateTaskInstancesState creation and API call
             mock_state_class.assert_called_once_with(**test_case["expected_state_request"])
@@ -467,7 +472,7 @@ class TestDagModule:
         getattr(mock_dag_api, test_case["api_method"]).return_value = mock_response
 
         # Execute function
-        result = await test_case["function"](**test_case["input"])
+        result = await test_case["function"](ENV, PROFILE, REGION, **test_case["input"])
 
         # Verify API call and result
         getattr(mock_dag_api, test_case["api_method"]).assert_called_once_with(**test_case["expected_call_kwargs"])
@@ -496,24 +501,23 @@ class TestDagModule:
             getattr(mock_dag_api, method).return_value = mock_response
 
         # Execute workflow steps
-        with patch("src.airflow.dag.AIRFLOW_HOST", "http://localhost:8080"):
-            # 1. Get DAG info
-            dag_info = await get_dag(dag_id)
-            assert len(dag_info) == 1
+        # 1. Get DAG info
+        dag_info = await get_dag(ENV, PROFILE, REGION, dag_id)
+        assert len(dag_info) == 1
 
-            # 2. Unpause DAG
-            with patch("src.airflow.dag.DAG") as mock_dag_class:
-                mock_dag_class.return_value = MagicMock()
-                unpause_result = await patch_dag(dag_id, is_paused=False)
-                assert len(unpause_result) == 1
+        # 2. Unpause DAG
+        with patch("src.airflow.dag.DAG") as mock_dag_class:
+            mock_dag_class.return_value = MagicMock()
+            unpause_result = await patch_dag(ENV, PROFILE, REGION, dag_id, is_paused=False)
+            assert len(unpause_result) == 1
 
-            # 3. Get tasks
-            tasks_result = await get_tasks(dag_id)
-            assert len(tasks_result) == 1
+        # 3. Get tasks
+        tasks_result = await get_tasks(ENV, PROFILE, REGION, dag_id)
+        assert len(tasks_result) == 1
 
-            # 4. Delete DAG
-            delete_result = await delete_dag(dag_id)
-            assert len(delete_result) == 1
+        # 4. Delete DAG
+        delete_result = await delete_dag(ENV, PROFILE, REGION, dag_id)
+        assert len(delete_result) == 1
 
         # Verify all API calls were made
         mock_dag_api.get_dag.assert_called_once_with(dag_id=dag_id)

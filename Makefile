@@ -1,6 +1,6 @@
 .PHONY: run build publish lint format test
 
-PYTHON=uv run --env-file .env python
+PYTHON=uv run python
 
 PARAMS=
 run:

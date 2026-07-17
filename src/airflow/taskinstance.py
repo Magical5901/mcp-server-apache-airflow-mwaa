@@ -3,9 +3,13 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import mcp.types as types
 from airflow_client.client.api.task_instance_api import TaskInstanceApi
 
-from src.airflow.airflow_client import api_client
+from src.airflow.airflow_client import get_api_client_and_host
 
-task_instance_api = TaskInstanceApi(api_client)
+
+def _task_instance_api(env_name: str, aws_profile: str, region: str) -> TaskInstanceApi:
+    """Return a TaskInstanceApi bound to the requested MWAA target."""
+    api_client, _ = get_api_client_and_host(env_name, aws_profile, region)
+    return TaskInstanceApi(api_client)
 
 
 def get_all_functions() -> list[tuple[Callable, str, str, bool]]:
@@ -23,13 +27,17 @@ def get_all_functions() -> list[tuple[Callable, str, str, bool]]:
 
 
 async def get_task_instance(
-    dag_id: str, task_id: str, dag_run_id: str
+    env_name: str, aws_profile: str, region: str, dag_id: str, task_id: str, dag_run_id: str
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    task_instance_api = _task_instance_api(env_name, aws_profile, region)
     response = task_instance_api.get_task_instance(dag_id=dag_id, dag_run_id=dag_run_id, task_id=task_id)
     return [types.TextContent(type="text", text=str(response.to_dict()))]
 
 
 async def list_task_instances(
+    env_name: str,
+    aws_profile: str,
+    region: str,
     dag_id: str,
     dag_run_id: str,
     execution_date_gte: Optional[str] = None,
@@ -48,6 +56,7 @@ async def list_task_instances(
     limit: Optional[int] = None,
     offset: Optional[int] = None,
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    task_instance_api = _task_instance_api(env_name, aws_profile, region)
     # Build parameters dictionary
     kwargs: Dict[str, Any] = {}
     if execution_date_gte is not None:
@@ -86,8 +95,15 @@ async def list_task_instances(
 
 
 async def update_task_instance(
-    dag_id: str, dag_run_id: str, task_id: str, state: Optional[str] = None
+    env_name: str,
+    aws_profile: str,
+    region: str,
+    dag_id: str,
+    dag_run_id: str,
+    task_id: str,
+    state: Optional[str] = None,
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    task_instance_api = _task_instance_api(env_name, aws_profile, region)
     update_request = {}
     if state is not None:
         update_request["state"] = state

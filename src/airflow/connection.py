@@ -3,9 +3,13 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import mcp.types as types
 from airflow_client.client.api.connection_api import ConnectionApi
 
-from src.airflow.airflow_client import api_client
+from src.airflow.airflow_client import get_api_client_and_host
 
-connection_api = ConnectionApi(api_client)
+
+def _connection_api(env_name: str, aws_profile: str, region: str) -> ConnectionApi:
+    """Return a ConnectionApi bound to the requested MWAA target."""
+    api_client, _ = get_api_client_and_host(env_name, aws_profile, region)
+    return ConnectionApi(api_client)
 
 
 def get_all_functions() -> list[tuple[Callable, str, str, bool]]:
@@ -21,10 +25,14 @@ def get_all_functions() -> list[tuple[Callable, str, str, bool]]:
 
 
 async def list_connections(
+    env_name: str,
+    aws_profile: str,
+    region: str,
     limit: Optional[int] = None,
     offset: Optional[int] = None,
     order_by: Optional[str] = None,
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    connection_api = _connection_api(env_name, aws_profile, region)
     # Build parameters dictionary
     kwargs: Dict[str, Any] = {}
     if limit is not None:
@@ -39,6 +47,9 @@ async def list_connections(
 
 
 async def create_connection(
+    env_name: str,
+    aws_profile: str,
+    region: str,
     conn_id: str,
     conn_type: str,
     host: Optional[str] = None,
@@ -48,6 +59,7 @@ async def create_connection(
     schema: Optional[str] = None,
     extra: Optional[str] = None,
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    connection_api = _connection_api(env_name, aws_profile, region)
     connection_request = {
         "connection_id": conn_id,
         "conn_type": conn_type,
@@ -69,12 +81,18 @@ async def create_connection(
     return [types.TextContent(type="text", text=str(response.to_dict()))]
 
 
-async def get_connection(conn_id: str) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+async def get_connection(
+    env_name: str, aws_profile: str, region: str, conn_id: str
+) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    connection_api = _connection_api(env_name, aws_profile, region)
     response = connection_api.get_connection(connection_id=conn_id)
     return [types.TextContent(type="text", text=str(response.to_dict()))]
 
 
 async def update_connection(
+    env_name: str,
+    aws_profile: str,
+    region: str,
     conn_id: str,
     conn_type: Optional[str] = None,
     host: Optional[str] = None,
@@ -84,6 +102,7 @@ async def update_connection(
     schema: Optional[str] = None,
     extra: Optional[str] = None,
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    connection_api = _connection_api(env_name, aws_profile, region)
     update_request = {}
     if conn_type is not None:
         update_request["conn_type"] = conn_type
@@ -106,12 +125,18 @@ async def update_connection(
     return [types.TextContent(type="text", text=str(response.to_dict()))]
 
 
-async def delete_connection(conn_id: str) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+async def delete_connection(
+    env_name: str, aws_profile: str, region: str, conn_id: str
+) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    connection_api = _connection_api(env_name, aws_profile, region)
     response = connection_api.delete_connection(connection_id=conn_id)
     return [types.TextContent(type="text", text=str(response.to_dict()))]
 
 
 async def test_connection(
+    env_name: str,
+    aws_profile: str,
+    region: str,
     conn_type: str,
     host: Optional[str] = None,
     port: Optional[int] = None,
@@ -120,6 +145,7 @@ async def test_connection(
     schema: Optional[str] = None,
     extra: Optional[str] = None,
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    connection_api = _connection_api(env_name, aws_profile, region)
     connection_request = {
         "conn_type": conn_type,
     }

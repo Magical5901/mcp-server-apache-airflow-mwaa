@@ -8,9 +8,13 @@ from airflow_client.client.model.dag_run import DAGRun
 from airflow_client.client.model.set_dag_run_note import SetDagRunNote
 from airflow_client.client.model.update_dag_run_state import UpdateDagRunState
 
-from src.airflow.airflow_client import api_client, AIRFLOW_HOST
+from src.airflow.airflow_client import get_api_client_and_host
 
-dag_run_api = DAGRunApi(api_client)
+
+def _dag_run_api(env_name: str, aws_profile: str, region: str) -> tuple[DAGRunApi, str]:
+    """Return a DAGRunApi bound to the requested MWAA target and its host URL."""
+    api_client, host = get_api_client_and_host(env_name, aws_profile, region)
+    return DAGRunApi(api_client), host
 
 
 def get_all_functions() -> list[tuple[Callable, str, str, bool]]:
@@ -28,11 +32,14 @@ def get_all_functions() -> list[tuple[Callable, str, str, bool]]:
     ]
 
 
-def get_dag_run_url(dag_id: str, dag_run_id: str) -> str:
-    return f"{AIRFLOW_HOST}/dags/{dag_id}/grid?dag_run_id={dag_run_id}"
+def get_dag_run_url(host: str, dag_id: str, dag_run_id: str) -> str:
+    return f"{host}/dags/{dag_id}/grid?dag_run_id={dag_run_id}"
 
 
 async def post_dag_run(
+    env_name: str,
+    aws_profile: str,
+    region: str,
     dag_id: str,
     dag_run_id: Optional[str] = None,
     data_interval_end: Optional[datetime] = None,
@@ -42,6 +49,7 @@ async def post_dag_run(
     note: Optional[str] = None,
     # state: Optional[str] = None,  # TODO: add state
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    dag_run_api, _ = _dag_run_api(env_name, aws_profile, region)
     # Build kwargs dictionary with only non-None values
     kwargs = {}
 
@@ -67,6 +75,9 @@ async def post_dag_run(
 
 
 async def get_dag_runs(
+    env_name: str,
+    aws_profile: str,
+    region: str,
     dag_id: str,
     limit: Optional[int] = None,
     offset: Optional[int] = None,
@@ -81,6 +92,7 @@ async def get_dag_runs(
     state: Optional[List[str]] = None,
     order_by: Optional[str] = None,
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    dag_run_api, host = _dag_run_api(env_name, aws_profile, region)
     # Build parameters dictionary
     kwargs: Dict[str, Any] = {}
     if limit is not None:
@@ -115,12 +127,15 @@ async def get_dag_runs(
 
     # Add UI links to each DAG run
     for dag_run in response_dict.get("dag_runs", []):
-        dag_run["ui_url"] = get_dag_run_url(dag_id, dag_run["dag_run_id"])
+        dag_run["ui_url"] = get_dag_run_url(host, dag_id, dag_run["dag_run_id"])
 
     return [types.TextContent(type="text", text=str(response_dict))]
 
 
 async def get_dag_runs_batch(
+    env_name: str,
+    aws_profile: str,
+    region: str,
     dag_ids: Optional[List[str]] = None,
     execution_date_gte: Optional[str] = None,
     execution_date_lte: Optional[str] = None,
@@ -133,6 +148,7 @@ async def get_dag_runs_batch(
     page_offset: Optional[int] = None,
     page_limit: Optional[int] = None,
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    dag_run_api, host = _dag_run_api(env_name, aws_profile, region)
     # Build request dictionary
     request: Dict[str, Any] = {}
     if dag_ids is not None:
@@ -165,28 +181,30 @@ async def get_dag_runs_batch(
 
     # Add UI links to each DAG run
     for dag_run in response_dict.get("dag_runs", []):
-        dag_run["ui_url"] = get_dag_run_url(dag_run["dag_id"], dag_run["dag_run_id"])
+        dag_run["ui_url"] = get_dag_run_url(host, dag_run["dag_id"], dag_run["dag_run_id"])
 
     return [types.TextContent(type="text", text=str(response_dict))]
 
 
 async def get_dag_run(
-    dag_id: str, dag_run_id: str
+    env_name: str, aws_profile: str, region: str, dag_id: str, dag_run_id: str
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    dag_run_api, host = _dag_run_api(env_name, aws_profile, region)
     response = dag_run_api.get_dag_run(dag_id=dag_id, dag_run_id=dag_run_id)
 
     # Convert response to dictionary for easier manipulation
     response_dict = response.to_dict()
 
     # Add UI link to DAG run
-    response_dict["ui_url"] = get_dag_run_url(dag_id, dag_run_id)
+    response_dict["ui_url"] = get_dag_run_url(host, dag_id, dag_run_id)
 
     return [types.TextContent(type="text", text=str(response_dict))]
 
 
 async def update_dag_run_state(
-    dag_id: str, dag_run_id: str, state: Optional[str] = None
+    env_name: str, aws_profile: str, region: str, dag_id: str, dag_run_id: str, state: Optional[str] = None
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    dag_run_api, _ = _dag_run_api(env_name, aws_profile, region)
     update_dag_run_state = UpdateDagRunState(state=state)
     response = dag_run_api.update_dag_run_state(
         dag_id=dag_id,
@@ -197,30 +215,34 @@ async def update_dag_run_state(
 
 
 async def delete_dag_run(
-    dag_id: str, dag_run_id: str
+    env_name: str, aws_profile: str, region: str, dag_id: str, dag_run_id: str
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    dag_run_api, _ = _dag_run_api(env_name, aws_profile, region)
     response = dag_run_api.delete_dag_run(dag_id=dag_id, dag_run_id=dag_run_id)
     return [types.TextContent(type="text", text=str(response.to_dict()))]
 
 
 async def clear_dag_run(
-    dag_id: str, dag_run_id: str, dry_run: Optional[bool] = None
+    env_name: str, aws_profile: str, region: str, dag_id: str, dag_run_id: str, dry_run: Optional[bool] = None
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    dag_run_api, _ = _dag_run_api(env_name, aws_profile, region)
     clear_dag_run = ClearDagRun(dry_run=dry_run)
     response = dag_run_api.clear_dag_run(dag_id=dag_id, dag_run_id=dag_run_id, clear_dag_run=clear_dag_run)
     return [types.TextContent(type="text", text=str(response.to_dict()))]
 
 
 async def set_dag_run_note(
-    dag_id: str, dag_run_id: str, note: str
+    env_name: str, aws_profile: str, region: str, dag_id: str, dag_run_id: str, note: str
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    dag_run_api, _ = _dag_run_api(env_name, aws_profile, region)
     set_dag_run_note = SetDagRunNote(note=note)
     response = dag_run_api.set_dag_run_note(dag_id=dag_id, dag_run_id=dag_run_id, set_dag_run_note=set_dag_run_note)
     return [types.TextContent(type="text", text=str(response.to_dict()))]
 
 
 async def get_upstream_dataset_events(
-    dag_id: str, dag_run_id: str
+    env_name: str, aws_profile: str, region: str, dag_id: str, dag_run_id: str
 ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
+    dag_run_api, _ = _dag_run_api(env_name, aws_profile, region)
     response = dag_run_api.get_upstream_dataset_events(dag_id=dag_id, dag_run_id=dag_run_id)
     return [types.TextContent(type="text", text=str(response.to_dict()))]

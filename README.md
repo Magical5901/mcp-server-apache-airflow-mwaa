@@ -98,85 +98,55 @@ This project implements a [Model Context Protocol](https://modelcontextprotocol.
 | Get Health Status                | `/api/v1/health`                                                                            | ✅     |
 | Get Version                      | `/api/v1/version`                                                                           | ✅     |
 
-## Setup
+## Setup (MWAA fork)
+
+> This fork targets **Amazon Managed Workflows for Apache Airflow (MWAA)**. Unlike upstream, it does not connect to a single Airflow host with a username/password. Instead, **each tool call names the MWAA target** — `env_name`, `aws_profile`, and `region` — so a **single running server can serve many MWAA environments**. The server mints a short-lived web-login token per target (via `mwaa:CreateWebLoginToken`) using your local AWS credentials, and caches the resulting client.
 
 ### Dependencies
 
-This project depends on the official Apache Airflow client library (`apache-airflow-client`). It will be automatically installed when you install this package.
+This project depends on the official Apache Airflow client library (`apache-airflow-client`) and `boto3`. Install with `uv sync`.
+
+### Per-call target parameters
+
+Every tool exposed by this server takes three leading parameters:
+
+| Parameter     | Meaning                                                                 |
+| ------------- | ----------------------------------------------------------------------- |
+| `env_name`    | The MWAA environment name (e.g. `my-mwaa-environment`).                |
+| `aws_profile` | A local AWS profile whose credentials can call `mwaa:CreateWebLoginToken` and are mapped to an Airflow RBAC role. |
+| `region`      | The AWS region the environment lives in.                                |
+
+There are **no** `MWAA_ENV_NAME` / `AWS_PROFILE` / `AWS_REGION` environment variables — the target is chosen at call time, not at server startup.
 
 ### Environment Variables
 
-Set the following environment variables:
+Only one optional environment variable is read:
 
 ```
-AIRFLOW_HOST=<your-airflow-host>        # Optional, defaults to http://localhost:8080
-AIRFLOW_USERNAME=<your-airflow-username>
-AIRFLOW_PASSWORD=<your-airflow-password>
-AIRFLOW_API_VERSION=v1                  # Optional, defaults to v1
+AIRFLOW_API_VERSION=v1   # Optional, defaults to v1
 ```
 
-### Usage with Claude Desktop
+### Usage with Claude / MCP clients
 
-Add to your `claude_desktop_config.json`:
+Register a single server (no target pinned in config). Read-only mode is recommended for safety:
 
 ```json
 {
   "mcpServers": {
-    "mcp-server-apache-airflow": {
-      "command": "uvx",
-      "args": ["mcp-server-apache-airflow"],
+    "mwaa": {
+      "type": "stdio",
+      "command": "/path/to/mcp-server-apache-airflow-mwaa/.venv/bin/python",
+      "args": ["-m", "src", "--transport", "stdio", "--read-only"],
       "env": {
-        "AIRFLOW_HOST": "https://your-airflow-host",
-        "AIRFLOW_USERNAME": "your-username",
-        "AIRFLOW_PASSWORD": "your-password"
+        "PYTHONUNBUFFERED": "1",
+        "PYTHONPATH": "/path/to/mcp-server-apache-airflow-mwaa"
       }
     }
   }
 }
 ```
 
-For read-only mode (recommended for safety):
-
-```json
-{
-  "mcpServers": {
-    "mcp-server-apache-airflow": {
-      "command": "uvx",
-      "args": ["mcp-server-apache-airflow", "--read-only"],
-      "env": {
-        "AIRFLOW_HOST": "https://your-airflow-host",
-        "AIRFLOW_USERNAME": "your-username",
-        "AIRFLOW_PASSWORD": "your-password"
-      }
-    }
-  }
-}
-```
-
-Alternative configuration using `uv`:
-
-```json
-{
-  "mcpServers": {
-    "mcp-server-apache-airflow": {
-      "command": "uv",
-      "args": [
-        "--directory",
-        "/path/to/mcp-server-apache-airflow",
-        "run",
-        "mcp-server-apache-airflow"
-      ],
-      "env": {
-        "AIRFLOW_HOST": "https://your-airflow-host",
-        "AIRFLOW_USERNAME": "your-username",
-        "AIRFLOW_PASSWORD": "your-password"
-      }
-    }
-  }
-}
-```
-
-Replace `/path/to/mcp-server-apache-airflow` with the actual path where you've cloned the repository.
+Replace `/path/to/mcp-server-apache-airflow-mwaa` with the actual path where you've cloned the repository. Make sure the relevant AWS profiles are refreshed (e.g. via `aws sso login`) before issuing calls.
 
 ### Selecting the API groups
 
