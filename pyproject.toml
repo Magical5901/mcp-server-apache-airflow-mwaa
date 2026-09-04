@@ -1,8 +1,10 @@
 [project]
 name = "mcp-server-apache-airflow"
-version = "0.2.7"
+version = "0.2.10"
 description = "Model Context Protocol (MCP) server for Apache Airflow"
-authors = [{ name = "Gyeongmo Yang", email = "me@gmyang.dev" }]
+authors = [
+    { name = "Gyeongmo Yang", email = "me@yanggyeongmo.com" }
+]
 dependencies = [
     "httpx>=0.24.1",
     "click>=8.1.7",
@@ -11,6 +13,7 @@ dependencies = [
     "fastmcp>=2.11.3",
     "boto3",
     "requests>=2.25.0",
+    "PyJWT>=2.8.0",
 ]
 requires-python = ">=3.10"
 readme = "README.md"

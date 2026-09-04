@@ -3,6 +3,7 @@
 # mcp-server-apache-airflow
 
 [![smithery badge](https://smithery.ai/badge/@yangkyeongmo/mcp-server-apache-airflow)](https://smithery.ai/server/@yangkyeongmo/mcp-server-apache-airflow)
+![PyPI - Downloads](https://img.shields.io/pypi/dm/mcp-server-apache-airflow)
 
 A Model Context Protocol (MCP) server implementation for Apache Airflow, enabling seamless integration with MCP clients. This project provides a standardized way to interact with Apache Airflow through the Model Context Protocol.
 
@@ -44,8 +45,10 @@ This project implements a [Model Context Protocol](https://modelcontextprotocol.
 | Get Task Instance                | `/api/v1/dags/{dag_id}/dagRuns/{dag_run_id}/taskInstances/{task_id}`                        | ✅     |
 | List Task Instances              | `/api/v1/dags/{dag_id}/dagRuns/{dag_run_id}/taskInstances`                                  | ✅     |
 | Update Task Instance             | `/api/v1/dags/{dag_id}/dagRuns/{dag_run_id}/taskInstances/{task_id}`                        | ✅     |
+| Get Task Instance Log            | `/api/v1/dags/{dag_id}/dagRuns/{dag_run_id}/taskInstances/{task_id}/logs/{task_try_number}` | ✅     |
 | Clear Task Instances             | `/api/v1/dags/{dag_id}/clearTaskInstances`                                                  | ✅     |
 | Set Task Instances State         | `/api/v1/dags/{dag_id}/updateTaskInstancesState`                                            | ✅     |
+| List Task Instance Tries         | `/api/v1/dags/{dag_id}/dagRuns/{dag_run_id}/taskInstances/{task_id}/tries`                  | ✅     |
 | **Variables**              |                                                                                               |        |
 | List Variables                   | `/api/v1/variables`                                                                         | ✅     |
 | Create Variable                  | `/api/v1/variables`                                                                         | ✅     |
@@ -112,7 +115,7 @@ Every tool exposed by this server takes three leading parameters:
 
 | Parameter     | Meaning                                                                 |
 | ------------- | ----------------------------------------------------------------------- |
-| `env_name`    | The MWAA environment name (e.g. `my-mwaa-environment`).                |
+| `env_name`    | The MWAA environment name (e.g. `my-mwaa-environment`).                 |
 | `aws_profile` | A local AWS profile whose credentials can call `mwaa:CreateWebLoginToken` and are mapped to an Airflow RBAC role. |
 | `region`      | The AWS region the environment lives in.                                |
 
@@ -120,11 +123,13 @@ There are **no** `MWAA_ENV_NAME` / `AWS_PROFILE` / `AWS_REGION` environment vari
 
 ### Environment Variables
 
-Only one optional environment variable is read:
+One optional environment variable is read:
 
 ```
 AIRFLOW_API_VERSION=v1   # Optional, defaults to v1
 ```
+
+Authentication is per MWAA target (see above) via `mwaa:CreateWebLoginToken` using your local AWS credentials — there is no static host, username, password, or JWT token to configure.
 
 ### Usage with Claude / MCP clients
 
